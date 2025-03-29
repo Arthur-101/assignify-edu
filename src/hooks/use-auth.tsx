@@ -14,11 +14,15 @@ type User = {
 type AuthContextType = {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, role?: string) => Promise<void>;
   logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Hard-coded admin credentials (in a real app, these would be in environment variables)
+const ADMIN_EMAIL = "admin@example.com";
+const ADMIN_PASSWORD = "password123";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -97,39 +101,71 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, role?: string) => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      
+      // Special case for admin login
+      if (role === "admin" && email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+        // For admin, we still use Supabase auth but we'll handle the profile specially
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-
-      if (data.user) {
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
-
-        if (profileError || profile.role !== 'admin') {
-          toast.error("You don't have permission to access this area");
-          await supabase.auth.signOut();
-          setUser(null);
-          return;
+        if (error) {
+          console.error("Admin login error:", error);
+          throw new Error("Invalid admin credentials");
         }
 
-        toast.success("Login successful!");
-        navigate("/admin");
+        if (data.user) {
+          toast.success("Admin login successful!");
+          navigate("/admin");
+          return;
+        }
+      } else {
+        // Regular user login through Supabase
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          console.error("Login error:", error);
+          throw new Error(error.message);
+        }
+
+        if (data.user) {
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
+
+          if (profileError) {
+            console.error("Profile error:", profileError);
+            throw new Error("Error fetching user profile");
+          }
+
+          if (role && profile.role !== role) {
+            await supabase.auth.signOut();
+            throw new Error(`You don't have ${role} privileges`);
+          }
+
+          toast.success("Login successful!");
+          
+          if (profile.role === "admin") {
+            navigate("/admin");
+          } else if (profile.role === "teacher") {
+            navigate("/teacher");
+          } else {
+            navigate("/student");
+          }
+        }
       }
-    } catch (error) {
-      console.error("Login error:", error);
-      toast.error("Login failed. Please try again.");
+    } catch (error: any) {
+      console.error("Login process error:", error);
+      throw error;
     } finally {
       setLoading(false);
     }
