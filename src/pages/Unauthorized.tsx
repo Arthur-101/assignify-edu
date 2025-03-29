@@ -1,0 +1,24 @@
+
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+
+export default function Unauthorized() {
+  const navigate = useNavigate();
+
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-muted/50 to-muted p-4">
+      <div className="w-full max-w-md space-y-8 bg-card p-8 rounded-lg shadow-lg text-center">
+        <h1 className="text-3xl font-bold text-destructive">Unauthorized</h1>
+        <p className="text-muted-foreground">
+          You don't have permission to access this page.
+        </p>
+        <div className="flex justify-center gap-4">
+          <Button onClick={() => navigate(-1)}>Go Back</Button>
+          <Button variant="outline" onClick={() => navigate("/")}>
+            Go Home
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
