@@ -27,6 +27,41 @@ export type Database = {
         }
         Relationships: []
       }
+      assignment_rubrics: {
+        Row: {
+          assignment_id: string
+          created_at: string | null
+          criteria: string
+          id: string
+          max_score: number
+          weight: number
+        }
+        Insert: {
+          assignment_id: string
+          created_at?: string | null
+          criteria: string
+          id?: string
+          max_score: number
+          weight?: number
+        }
+        Update: {
+          assignment_id?: string
+          created_at?: string | null
+          criteria?: string
+          id?: string
+          max_score?: number
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignment_rubrics_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assignments: {
         Row: {
           course_id: string | null
@@ -67,7 +102,7 @@ export type Database = {
             foreignKeyName: "assignments_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
-            referencedRelation: "teachers"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -102,116 +137,169 @@ export type Database = {
             foreignKeyName: "courses_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
-            referencedRelation: "teachers"
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      grades: {
+        Row: {
+          feedback: string | null
+          graded_at: string | null
+          graded_by: string | null
+          id: string
+          is_auto_graded: boolean | null
+          rubric_id: string | null
+          score: number
+          submission_id: string
+        }
+        Insert: {
+          feedback?: string | null
+          graded_at?: string | null
+          graded_by?: string | null
+          id?: string
+          is_auto_graded?: boolean | null
+          rubric_id?: string | null
+          score: number
+          submission_id: string
+        }
+        Update: {
+          feedback?: string | null
+          graded_at?: string | null
+          graded_by?: string | null
+          id?: string
+          is_auto_graded?: boolean | null
+          rubric_id?: string | null
+          score?: number
+          submission_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grades_graded_by_fkey"
+            columns: ["graded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grades_rubric_id_fkey"
+            columns: ["rubric_id"]
+            isOneToOne: false
+            referencedRelation: "assignment_rubrics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grades_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "submissions"
             referencedColumns: ["id"]
           },
         ]
       }
       profiles: {
         Row: {
-          avatar_url: string | null
           created_at: string | null
           email: string
           id: string
-          name: string
-          role: string
+          name: string | null
+          role: string | null
+          updated_at: string | null
         }
         Insert: {
-          avatar_url?: string | null
           created_at?: string | null
           email: string
           id: string
-          name: string
-          role: string
+          name?: string | null
+          role?: string | null
+          updated_at?: string | null
         }
         Update: {
-          avatar_url?: string | null
           created_at?: string | null
           email?: string
           id?: string
-          name?: string
-          role?: string
+          name?: string | null
+          role?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
-      students: {
+      student_courses: {
         Row: {
-          batch: string
           course_id: string
-          created_at: string | null
-          email: string
           id: string
-          name: string
-          phone: string | null
+          joined_at: string | null
+          student_id: string
         }
         Insert: {
-          batch: string
           course_id: string
-          created_at?: string | null
-          email: string
-          id: string
-          name: string
-          phone?: string | null
+          id?: string
+          joined_at?: string | null
+          student_id: string
         }
         Update: {
-          batch?: string
           course_id?: string
-          created_at?: string | null
-          email?: string
           id?: string
-          name?: string
-          phone?: string | null
+          joined_at?: string | null
+          student_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "students_course_id_fkey"
+            foreignKeyName: "student_courses_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "students_id_fkey"
-            columns: ["id"]
-            isOneToOne: true
+            foreignKeyName: "student_courses_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
       }
-      teachers: {
+      submissions: {
         Row: {
-          courses: string[] | null
-          created_at: string | null
-          department: string
-          email: string
+          assignment_id: string
+          content_type: string
+          file_url: string
           id: string
-          name: string
-          phone: string | null
+          status: string | null
+          student_id: string
+          submitted_at: string | null
         }
         Insert: {
-          courses?: string[] | null
-          created_at?: string | null
-          department: string
-          email: string
-          id: string
-          name: string
-          phone?: string | null
+          assignment_id: string
+          content_type: string
+          file_url: string
+          id?: string
+          status?: string | null
+          student_id: string
+          submitted_at?: string | null
         }
         Update: {
-          courses?: string[] | null
-          created_at?: string | null
-          department?: string
-          email?: string
+          assignment_id?: string
+          content_type?: string
+          file_url?: string
           id?: string
-          name?: string
-          phone?: string | null
+          status?: string | null
+          student_id?: string
+          submitted_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "teachers_id_fkey"
-            columns: ["id"]
-            isOneToOne: true
+            foreignKeyName: "submissions_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "submissions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
