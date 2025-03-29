@@ -4,6 +4,7 @@ import { Button } from "./ui/button";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LoginModal } from "./LoginModal";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -26,6 +27,7 @@ export function Navbar() {
             <li><a href="#roles" className="text-gray-700 dark:text-gray-300 hover:text-assignify-primary dark:hover:text-assignify-accent transition-colors">Roles</a></li>
             <li><a href="#workflow" className="text-gray-700 dark:text-gray-300 hover:text-assignify-primary dark:hover:text-assignify-accent transition-colors">Workflow</a></li>
           </ul>
+          <ThemeToggle />
           <Button onClick={() => setIsLoginModalOpen(true)}>Login</Button>
         </div>
         
@@ -46,10 +48,13 @@ export function Navbar() {
             <li><a href="#roles" className="block py-2 text-gray-700 dark:text-gray-300 hover:text-assignify-primary dark:hover:text-assignify-accent" onClick={toggleMenu}>Roles</a></li>
             <li><a href="#workflow" className="block py-2 text-gray-700 dark:text-gray-300 hover:text-assignify-primary dark:hover:text-assignify-accent" onClick={toggleMenu}>Workflow</a></li>
           </ul>
-          <Button className="w-full mb-4" onClick={() => {
-            setIsLoginModalOpen(true);
-            setIsMenuOpen(false);
-          }}>Login</Button>
+          <div className="flex gap-2 mb-4">
+            <ThemeToggle />
+            <Button className="w-full" onClick={() => {
+              setIsLoginModalOpen(true);
+              setIsMenuOpen(false);
+            }}>Login</Button>
+          </div>
         </div>
       </div>
       
