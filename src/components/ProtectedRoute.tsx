@@ -10,6 +10,7 @@ type ProtectedRouteProps = {
 export default function ProtectedRoute({ allowedRoles = [] }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
 
+  // Show loading state while authentication is being checked
   if (loading) {
     return (
       <div className="h-screen w-full flex items-center justify-center">
@@ -18,13 +19,16 @@ export default function ProtectedRoute({ allowedRoles = [] }: ProtectedRouteProp
     );
   }
 
+  // Redirect to login if user is not authenticated
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
+  // Redirect to unauthorized page if user doesn't have required role
   if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
     return <Navigate to="/unauthorized" replace />;
   }
 
+  // User is authenticated and has required role, render the protected route
   return <Outlet />;
 }
