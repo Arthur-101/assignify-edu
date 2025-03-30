@@ -14,11 +14,15 @@ type User = {
 type AuthContextType = {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, role?: string) => Promise<void>;
   logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Admin credentials - hardcoded for development only
+const ADMIN_EMAIL = "admin@example.com";
+const ADMIN_PASSWORD = "password123";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -97,17 +101,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, role?: string) => {
     try {
       setLoading(true);
+      
+      // Special case for admin login - completely separate from Supabase auth
+      if (role === "admin" && email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+        // Create a mock admin user without going through Supabase
+        const adminUser = {
+          id: "admin-id",
+          email: ADMIN_EMAIL,
+          role: "admin",
+          name: "Administrator"
+        };
+        
+        // Set the admin user in state
+        setUser(adminUser);
+        
+        // Store in localStorage for persistence
+        localStorage.setItem("adminUser", JSON.stringify(adminUser));
+        
+        toast.success("Admin login successful!");
+        navigate("/admin");
+        return;
+      }
+
+      // Regular user login through Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
-        toast.error(error.message);
-        return;
+        console.error("Login error:", error);
+        throw new Error(error.message);
       }
 
       if (data.user) {
@@ -117,19 +144,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .eq('id', data.user.id)
           .single();
 
-        if (profileError || profile.role !== 'admin') {
-          toast.error("You don't have permission to access this area");
+        if (profileError) {
+          console.error("Profile error:", profileError);
+          throw new Error("Error fetching user profile");
+        }
+
+        if (role && profile.role !== role) {
           await supabase.auth.signOut();
-          setUser(null);
-          return;
+          throw new Error(`You don't have ${role} privileges`);
         }
 
         toast.success("Login successful!");
-        navigate("/admin");
+        
+        if (profile.role === "teacher") {
+          navigate("/teacher");
+        } else if (profile.role === "student") {
+          navigate("/student");
+        }
       }
-    } catch (error) {
-      console.error("Login error:", error);
-      toast.error("Login failed. Please try again.");
+    } catch (error: any) {
+      console.error("Login process error:", error);
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -137,6 +172,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
+      // Check if it's the admin user (stored in localStorage)
+      const adminUser = localStorage.getItem("adminUser");
+      if (adminUser) {
+        localStorage.removeItem("adminUser");
+        setUser(null);
+        navigate("/");
+        toast.success("Admin logged out successfully");
+        return;
+      }
+      
+      // Regular user logout through Supabase
       await supabase.auth.signOut();
       navigate("/");
       toast.success("Logged out successfully");
@@ -145,6 +191,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       toast.error("Failed to log out");
     }
   };
+
+  // Check for admin user in localStorage during initialization
+  useEffect(() => {
+    const adminUser = localStorage.getItem("adminUser");
+    if (adminUser && !user) {
+      setUser(JSON.parse(adminUser));
+      setLoading(false);
+    }
+  }, [user]);
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout }}>
