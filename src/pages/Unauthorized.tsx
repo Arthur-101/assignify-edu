@@ -11,7 +11,7 @@ export default function Unauthorized() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-muted/50 to-muted p-4">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center space-y-2">
           <div className="mx-auto w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center">
             <ShieldAlert className="h-8 w-8 text-destructive" />

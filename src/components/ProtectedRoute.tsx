@@ -10,6 +10,8 @@ type ProtectedRouteProps = {
 export default function ProtectedRoute({ allowedRoles = [] }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
 
+  console.log("ProtectedRoute", { user, loading, allowedRoles });
+
   // Show loading state while authentication is being checked
   if (loading) {
     return (

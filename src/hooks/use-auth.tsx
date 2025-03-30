@@ -32,6 +32,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const checkUser = async () => {
       try {
+        // Check if admin user exists in localStorage first
+        const storedAdminUser = localStorage.getItem("adminUser");
+        if (storedAdminUser) {
+          setUser(JSON.parse(storedAdminUser));
+          setLoading(false);
+          return;
+        }
+
+        // If not admin, check Supabase session
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -71,6 +80,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        // Skip if admin user is already set from localStorage
+        if (localStorage.getItem("adminUser")) {
+          return;
+        }
+        
         if (session?.user) {
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
@@ -106,24 +120,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       
       // Special case for admin login - completely separate from Supabase auth
-      if (role === "admin" && email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-        // Create a mock admin user without going through Supabase
-        const adminUser = {
-          id: "admin-id",
-          email: ADMIN_EMAIL,
-          role: "admin",
-          name: "Administrator"
-        };
-        
-        // Set the admin user in state
-        setUser(adminUser);
-        
-        // Store in localStorage for persistence
-        localStorage.setItem("adminUser", JSON.stringify(adminUser));
-        
-        toast.success("Admin login successful!");
-        navigate("/admin");
-        return;
+      if (role === "admin") {
+        // Check admin credentials directly
+        if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+          // Create a mock admin user without going through Supabase
+          const adminUser = {
+            id: "admin-id",
+            email: ADMIN_EMAIL,
+            role: "admin",
+            name: "Administrator"
+          };
+          
+          // Set the admin user in state
+          setUser(adminUser);
+          
+          // Store in localStorage for persistence
+          localStorage.setItem("adminUser", JSON.stringify(adminUser));
+          
+          toast.success("Admin login successful!");
+          navigate("/admin");
+          return;
+        } else {
+          throw new Error("Invalid admin credentials");
+        }
       }
 
       // Regular user login through Supabase
@@ -173,8 +192,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       // Check if it's the admin user (stored in localStorage)
-      const adminUser = localStorage.getItem("adminUser");
-      if (adminUser) {
+      if (localStorage.getItem("adminUser")) {
         localStorage.removeItem("adminUser");
         setUser(null);
         navigate("/");
@@ -191,15 +209,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       toast.error("Failed to log out");
     }
   };
-
-  // Check for admin user in localStorage during initialization
-  useEffect(() => {
-    const adminUser = localStorage.getItem("adminUser");
-    if (adminUser && !user) {
-      setUser(JSON.parse(adminUser));
-      setLoading(false);
-    }
-  }, [user]);
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout }}>
