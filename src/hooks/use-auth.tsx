@@ -20,7 +20,7 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Admin credentials - hardcoded for development only
+// Hard-coded admin credentials (in a real app, these would be in environment variables)
 const ADMIN_EMAIL = "admin@example.com";
 const ADMIN_PASSWORD = "password123";
 
@@ -105,61 +105,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
       
-      // Special case for admin login - completely separate from Supabase auth
+      // Special case for admin login
       if (role === "admin" && email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-        // Create a mock admin user without going through Supabase
-        const adminUser = {
-          id: "admin-id",
-          email: ADMIN_EMAIL,
-          role: "admin",
-          name: "Administrator"
-        };
-        
-        // Set the admin user in state
-        setUser(adminUser);
-        
-        // Store in localStorage for persistence
-        localStorage.setItem("adminUser", JSON.stringify(adminUser));
-        
-        toast.success("Admin login successful!");
-        navigate("/admin");
-        return;
-      }
+        // For admin, we still use Supabase auth but we'll handle the profile specially
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
-      // Regular user login through Supabase
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        console.error("Login error:", error);
-        throw new Error(error.message);
-      }
-
-      if (data.user) {
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
-
-        if (profileError) {
-          console.error("Profile error:", profileError);
-          throw new Error("Error fetching user profile");
+        if (error) {
+          console.error("Admin login error:", error);
+          throw new Error("Invalid admin credentials");
         }
 
-        if (role && profile.role !== role) {
-          await supabase.auth.signOut();
-          throw new Error(`You don't have ${role} privileges`);
+        if (data.user) {
+          toast.success("Admin login successful!");
+          navigate("/admin");
+          return;
+        }
+      } else {
+        // Regular user login through Supabase
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          console.error("Login error:", error);
+          throw new Error(error.message);
         }
 
-        toast.success("Login successful!");
-        
-        if (profile.role === "teacher") {
-          navigate("/teacher");
-        } else if (profile.role === "student") {
-          navigate("/student");
+        if (data.user) {
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
+
+          if (profileError) {
+            console.error("Profile error:", profileError);
+            throw new Error("Error fetching user profile");
+          }
+
+          if (role && profile.role !== role) {
+            await supabase.auth.signOut();
+            throw new Error(`You don't have ${role} privileges`);
+          }
+
+          toast.success("Login successful!");
+          
+          if (profile.role === "admin") {
+            navigate("/admin");
+          } else if (profile.role === "teacher") {
+            navigate("/teacher");
+          } else {
+            navigate("/student");
+          }
         }
       }
     } catch (error: any) {
@@ -172,17 +173,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      // Check if it's the admin user (stored in localStorage)
-      const adminUser = localStorage.getItem("adminUser");
-      if (adminUser) {
-        localStorage.removeItem("adminUser");
-        setUser(null);
-        navigate("/");
-        toast.success("Admin logged out successfully");
-        return;
-      }
-      
-      // Regular user logout through Supabase
       await supabase.auth.signOut();
       navigate("/");
       toast.success("Logged out successfully");
@@ -191,15 +181,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       toast.error("Failed to log out");
     }
   };
-
-  // Check for admin user in localStorage during initialization
-  useEffect(() => {
-    const adminUser = localStorage.getItem("adminUser");
-    if (adminUser && !user) {
-      setUser(JSON.parse(adminUser));
-      setLoading(false);
-    }
-  }, [user]);
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout }}>
