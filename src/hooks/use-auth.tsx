@@ -3,17 +3,26 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { AuthContextType, User } from "@/types/auth-types";
-import { 
-  getStoredAdminUser, 
-  validateAdminCredentials, 
-  createAdminUser, 
-  storeAdminUser, 
-  clearAdminUser 
-} from "@/utils/admin-auth";
-import { fetchUserProfile } from "@/utils/user-profile";
+
+type User = {
+  id: string;
+  email: string;
+  role: string;
+  name: string | null;
+};
+
+type AuthContextType = {
+  user: User | null;
+  loading: boolean;
+  login: (email: string, password: string, role?: string) => Promise<void>;
+  logout: () => Promise<void>;
+};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Admin credentials - hardcoded for development only
+const ADMIN_EMAIL = "admin@example.com";
+const ADMIN_PASSWORD = "password123";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -24,9 +33,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const checkUser = async () => {
       try {
         // Check if admin user exists in localStorage first
-        const adminUser = getStoredAdminUser();
-        if (adminUser) {
-          setUser(adminUser);
+        const storedAdminUser = localStorage.getItem("adminUser");
+        if (storedAdminUser) {
+          setUser(JSON.parse(storedAdminUser));
           setLoading(false);
           return;
         }
@@ -39,8 +48,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (session?.user) {
-          const userProfile = await fetchUserProfile(session.user.id);
-          setUser(userProfile);
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (profileError) {
+            console.error("Error fetching profile:", profileError);
+            setUser(null);
+          } else {
+            setUser({
+              id: session.user.id,
+              email: session.user.email!,
+              role: profile.role,
+              name: profile.name
+            });
+          }
         } else {
           setUser(null);
         }
@@ -57,13 +81,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         // Skip if admin user is already set from localStorage
-        if (getStoredAdminUser()) {
+        if (localStorage.getItem("adminUser")) {
           return;
         }
         
         if (session?.user) {
-          const userProfile = await fetchUserProfile(session.user.id);
-          setUser(userProfile);
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (profileError) {
+            console.error("Error fetching profile:", profileError);
+            setUser(null);
+          } else {
+            setUser({
+              id: session.user.id,
+              email: session.user.email!,
+              role: profile.role,
+              name: profile.name
+            });
+          }
         } else {
           setUser(null);
         }
@@ -82,10 +121,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Special case for admin login - completely separate from Supabase auth
       if (role === "admin") {
-        if (validateAdminCredentials(email, password)) {
-          const adminUser = createAdminUser();
+        // Check admin credentials directly
+        if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+          // Create a mock admin user without going through Supabase
+          const adminUser = {
+            id: "admin-id",
+            email: ADMIN_EMAIL,
+            role: "admin",
+            name: "Administrator"
+          };
+          
+          // Set the admin user in state
           setUser(adminUser);
-          storeAdminUser(adminUser);
+          
+          // Store in localStorage for persistence
+          localStorage.setItem("adminUser", JSON.stringify(adminUser));
           
           toast.success("Admin login successful!");
           navigate("/admin");
@@ -107,22 +157,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (data.user) {
-        const userProfile = await fetchUserProfile(data.user.id);
-        
-        if (!userProfile) {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+
+        if (profileError) {
+          console.error("Profile error:", profileError);
           throw new Error("Error fetching user profile");
         }
 
-        if (role && userProfile.role !== role) {
+        if (role && profile.role !== role) {
           await supabase.auth.signOut();
           throw new Error(`You don't have ${role} privileges`);
         }
 
         toast.success("Login successful!");
         
-        if (userProfile.role === "teacher") {
+        if (profile.role === "teacher") {
           navigate("/teacher");
-        } else if (userProfile.role === "student") {
+        } else if (profile.role === "student") {
           navigate("/student");
         }
       }
@@ -137,8 +192,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       // Check if it's the admin user (stored in localStorage)
-      if (getStoredAdminUser()) {
-        clearAdminUser();
+      if (localStorage.getItem("adminUser")) {
+        localStorage.removeItem("adminUser");
         setUser(null);
         navigate("/");
         toast.success("Admin logged out successfully");
